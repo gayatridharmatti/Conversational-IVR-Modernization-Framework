@@ -484,13 +484,7 @@ session = {
 }
 ```
 
-> **Milestone 4 upgrade:** Replace the in-memory `SESSIONS` dict with Redis:
-> ```python
-> import redis
-> store = redis.Redis(host="localhost", port=6379)
-> ```
 
----
 
 ## 🔭 System Architecture
 
@@ -534,16 +528,7 @@ session = {
 
 ---
 
-## 🗺️ Milestone Roadmap
 
-| Milestone | Weeks | Deliverable | Status |
-|---|---|---|---|
-| **M1** | 1–2 | System analysis, architecture documentation | ✅ Complete |
-| **M2** | 3–4 | FastAPI integration layer + web simulator | ✅ **This project** |
-| **M3** | 5–6 | ACS/BAP conversational AI flows | 🔲 Next — `/acs/bridge` stub ready |
-| **M4** | 7–8 | Production deployment + Redis + real IRCTC APIs | 🔲 Future — `/health` endpoint ready |
-
----
 
 ## 🐛 Troubleshooting
 
