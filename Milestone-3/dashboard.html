@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IRCTC Smart IVR — Dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+/* ── Panel content sections (only one visible at a time) ── */
+.panel-section { display: none; }
+.panel-section.active { display: block; }
+
+/* ── Voice commands card ── */
+.voice-commands {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: calc(100vh - 320px);
+}
+.vc-title {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--teal);
+  padding: 0 0 6px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.vc-item {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--teal);
+  border-radius: 7px;
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.vc-item:hover {
+  border-left-color: var(--amber);
+  background: rgba(20,184,166,0.06);
+}
+.vc-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--amber);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.vc-cmd {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #6ee7b7;
+  font-style: italic;
+}
+.vc-desc {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* ── Menu list card ── */
+.menu-list {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  max-height: calc(100vh - 320px);
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+.menu-item:hover {
+  border-color: var(--teal);
+  background: rgba(20,184,166,0.06);
+  transform: translateX(3px);
+}
+.menu-item.disabled-item {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.mi-key {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  background: var(--teal-dark);
+  color: white;
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.mi-key.k0 { background: var(--surface3); }
+.mi-info { flex: 1; }
+.mi-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.mi-desc {
+  font-size: 10px;
+  color: var(--muted);
+  font-family: var(--mono);
+  margin-top: 2px;
+}
+.mi-arrow {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ── Dialpad wrapper ── */
+.dialpad-wrap {
+  padding: 0 14px 14px;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══════════════════════════════════════════════ -->
+<header class="header">
+  <div class="hdr-logo">🚆</div>
+  <div>
+    <div class="hdr-title">IRCTC Smart IVR</div>
+    <div class="hdr-sub">CONVERSATIONAL AI — MODULE 3</div>
+  </div>
+  <div class="hdr-div"></div>
+  <div class="hdr-milestone">M3 · NLU + TTS + STT</div>
+  <div class="hdr-badge">
+    <span class="badge-dot"></span>
+    AI LAYER ACTIVE
+  </div>
+  <span class="hdr-user" id="hdr-user"></span>
+  <button class="btn-logout" onclick="logout()">LOGOUT</button>
+</header>
+
+<!-- ══ MAIN GRID ════════════════════════════════════════════ -->
+<div class="grid">
+
+  <!-- ════ LEFT — IVR PHONE SIMULATOR ════ -->
+  <div class="panel">
+    <div class="panel-head">
+      <span class="ph-icon">📞</span>
+      <span class="ph-title">IVR Phone Simulator</span>
+    </div>
+    <div class="phone-body">
+
+      <!-- Call screen — NO overflow text, fixed height -->
+      <div class="ivr-screen">
+        <div class="screen-caller">
+          <span class="caller-dot" id="caller-dot"></span>
+          <span>+91-98765-43210</span>
+        </div>
+        <div id="screen-text" class="idle">
+          Press START CALL to begin...
+        </div>
+      </div>
+
+      <!-- Session info bar -->
+      <div class="sess-row">
+        <span>SID</span>
+        <b id="sid-val">—</b>
+        <span>FLOW</span>
+        <b id="flow-val" style="color:var(--amber)">IDLE</b>
+      </div>
+
+      <!-- START CALL button -->
+      <button class="btn-call" id="btn-start" onclick="startCall()">
+        ▶ &nbsp; START CALL
+      </button>
+
+      <!-- ── MODE TOGGLE: DTMF / VOICE / MENU ── -->
+      <div class="mode-row">
+        <button class="mode-btn active" id="mode-dtmf" onclick="setMode('dtmf')">
+          ⌨ DTMF
+        </button>
+        <button class="mode-btn" id="mode-voice" onclick="setMode('voice')">
+          🎤 VOICE
+        </button>
+        <button class="mode-btn" id="mode-menu" onclick="setMode('menu')">
+          ☰ MENU
+        </button>
+      </div>
+
+      <!-- ── SECTION: DTMF DIALPAD (default visible) ── -->
+      <div class="panel-section active" id="section-dtmf">
+        <div class="dialpad-wrap">
+          <div class="dialpad">
+            <button class="dk" onclick="pressKey('1')" disabled>1<sub>—</sub></button>
+            <button class="dk" onclick="pressKey('2')" disabled>2<sub>ABC</sub></button>
+            <button class="dk" onclick="pressKey('3')" disabled>3<sub>DEF</sub></button>
+            <button class="dk" onclick="pressKey('4')" disabled>4<sub>GHI</sub></button>
+            <button class="dk" onclick="pressKey('5')" disabled>5<sub>JKL</sub></button>
+            <button class="dk" onclick="pressKey('6')" disabled>6<sub>MNO</sub></button>
+            <button class="dk" onclick="pressKey('7')" disabled>7<sub>PQRS</sub></button>
+            <button class="dk" onclick="pressKey('8')" disabled>8<sub>TUV</sub></button>
+            <button class="dk" onclick="pressKey('9')" disabled>9<sub>WXYZ</sub></button>
+            <button class="dk" onclick="pressKey('*')" disabled>*</button>
+            <button class="dk" onclick="pressKey('0')" disabled>0<sub>+</sub></button>
+            <button class="dk" onclick="pressKey('#')" disabled>#</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SECTION: VOICE — hardcoded test data reference ── -->
+      <div class="panel-section" id="section-voice">
+        <div class="voice-commands">
+          <div class="vc-title">📋 Test Data — Use These in Chat or Mic</div>
+
+          <div class="vc-item">
+            <div class="vc-label">PNR Number</div>
+            <div class="vc-cmd">4521679834</div>
+            <div class="vc-desc">Say: "Check my PNR 4521679834"</div>
+          </div>
+
+          <div class="vc-item">
+            <div class="vc-label">Train Number</div>
+            <div class="vc-cmd">12951</div>
+            <div class="vc-desc">Mumbai Rajdhani Express</div>
+          </div>
+
+          <div class="vc-item">
+            <div class="vc-label">From Station</div>
+            <div class="vc-cmd">NDLS</div>
+            <div class="vc-desc">New Delhi Railway Station</div>
+          </div>
+
+          <div class="vc-item">
+            <div class="vc-label">To Station</div>
+            <div class="vc-cmd">MMCT</div>
+            <div class="vc-desc">Mumbai Central Station</div>
+          </div>
+
+          <div class="vc-item">
+            <div class="vc-label">Journey Date</div>
+            <div class="vc-cmd">15 June</div>
+            <div class="vc-desc">Say: "on 15 June" or "15-06-2025"</div>
+          </div>
+
+          <div class="vc-item">
+            <div class="vc-label">Travel Class</div>
+            <div class="vc-cmd">Third AC  /  Sleeper</div>
+            <div class="vc-desc">Say class name or code: 3A, SL, 2A, 1A</div>
+          </div>
+
+          <div class="vc-item">
+            <div class="vc-label">Complaint Type</div>
+            <div class="vc-cmd">dirty  /  food  /  delay</div>
+            <div class="vc-desc">Say: "coach is dirty" or "bad food"</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── SECTION: MENU LIST (display only — use dialpad or chat) ── -->
+      <div class="panel-section" id="section-menu">
+        <div class="menu-list">
+
+          <div class="menu-item" style="pointer-events:none;cursor:default;">
+            <div class="mi-key">1</div>
+            <div class="mi-info">
+              <div class="mi-name">PNR Status</div>
+              <div class="mi-desc">Check booking confirmation</div>
+            </div>
+          </div>
+
+          <div class="menu-item" style="pointer-events:none;cursor:default;">
+            <div class="mi-key">2</div>
+            <div class="mi-info">
+              <div class="mi-name">Ticket Booking</div>
+              <div class="mi-desc">Book a new train ticket</div>
+            </div>
+          </div>
+
+          <div class="menu-item" style="pointer-events:none;cursor:default;">
+            <div class="mi-key">3</div>
+            <div class="mi-info">
+              <div class="mi-name">Train Search</div>
+              <div class="mi-desc">Find trains between stations</div>
+            </div>
+          </div>
+
+          <div class="menu-item" style="pointer-events:none;cursor:default;">
+            <div class="mi-key">4</div>
+            <div class="mi-info">
+              <div class="mi-name">Cancellation & Refund</div>
+              <div class="mi-desc">Cancel ticket and get refund</div>
+            </div>
+          </div>
+
+          <div class="menu-item" style="pointer-events:none;cursor:default;">
+            <div class="mi-key">5</div>
+            <div class="mi-info">
+              <div class="mi-name">Register Complaint</div>
+              <div class="mi-desc">Train service / food / cleanliness</div>
+            </div>
+          </div>
+
+          <div class="menu-item" style="pointer-events:none;cursor:default;">
+            <div class="mi-key">6</div>
+            <div class="mi-info">
+              <div class="mi-name">Talk to Agent</div>
+              <div class="mi-desc">Connect to IRCTC support</div>
+            </div>
+          </div>
+
+          <div class="menu-item" style="pointer-events:none;cursor:default;">
+            <div class="mi-key k0">0</div>
+            <div class="mi-info">
+              <div class="mi-name">Repeat Menu</div>
+              <div class="mi-desc">Hear the options again</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- END CALL button -->
+      <button class="btn-end" id="btn-end" onclick="endCall()">
+        ✕ &nbsp; END CALL
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ════ CENTER — CHATBOT INTERFACE ════ -->
+  <div class="center-col">
+
+    <!-- Chat panel -->
+    <div class="panel chat-panel">
+      <div class="panel-head">
+        <span class="ph-icon">🧠</span>
+        <span class="ph-title">Conversational AI — Chat Interface</span>
+        <div class="ph-right">
+          <button class="btn-tts" id="btn-tts-toggle"
+                  onclick="toggleTTS()" title="Toggle TTS auto-speak">🔊</button>
+        </div>
+      </div>
+
+      <!-- Suggestion chips -->
+      <div class="suggestions">
+        <span class="sug-chip" onclick="sendSuggestion(this)">Check my PNR 4521679834</span>
+        <span class="sug-chip" onclick="sendSuggestion(this)">Book ticket from NDLS to MMCT</span>
+        <span class="sug-chip" onclick="sendSuggestion(this)">Search trains from NDLS to MMCT</span>
+        <span class="sug-chip" onclick="sendSuggestion(this)">Cancel my ticket PNR 4521679834</span>
+        <span class="sug-chip" onclick="sendSuggestion(this)">Register complaint dirty coach</span>
+        <span class="sug-chip" onclick="sendSuggestion(this)">Talk to agent</span>
+      </div>
+
+      <!-- Message area -->
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg bot">
+          <div class="msg-avatar">🚆</div>
+          <div>
+            <div class="msg-bubble">
+              Welcome to <strong>IRCTC Smart IVR</strong> — Conversational AI Interface.<br><br>
+              Click <strong>START CALL</strong>, then use any mode:<br>
+              &nbsp;• <strong>DTMF</strong> — press keys 1–6 on dialpad<br>
+              &nbsp;• <strong>VOICE</strong> — click 🎤 and speak your query<br>
+              &nbsp;• <strong>MENU</strong> — click any service from the list<br><br>
+              Or type here: <em>"Check my PNR 4521679834"</em>
+            </div>
+            <div class="msg-meta">IRCTC IVR · Module 3 Conversational AI</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat input row -->
+      <div class="chat-input-row">
+        <button class="btn-mic" id="btn-mic"
+                onclick="toggleMic()" disabled
+                title="Click to speak (Chrome/Edge only)">🎤</button>
+        <input type="text" id="chat-input"
+               placeholder="Type your query... e.g. Check PNR 4521679834"
+               disabled
+               onkeydown="if(event.key==='Enter') sendMessage()">
+        <button class="btn-tts" id="btn-last-tts"
+                onclick="speakLast()" disabled
+                title="Replay last response">🔈</button>
+        <button class="btn-send" id="btn-send"
+                onclick="sendMessage()" disabled>➤</button>
+      </div>
+    </div>
+
+    <!-- NLU pipeline panel -->
+    <div class="panel nlu-panel">
+      <div class="panel-head">
+        <span class="ph-icon">⚙</span>
+        <span class="ph-title">NLU Pipeline — Intent · Confidence · Entities</span>
+      </div>
+      <div class="nlu-inner">
+
+        <div class="nlu-box">
+          <div class="nlu-label">🎯 Detected Intent</div>
+          <div class="nlu-val" id="nlu-intent">—</div>
+          <div class="nlu-sub" id="nlu-method">Method: — · Matched: —</div>
+          <div class="conf-meter">
+            <div class="conf-fill" id="conf-fill"></div>
+          </div>
+          <div class="nlu-sub" id="nlu-conf">Confidence: —</div>
+        </div>
+
+        <div class="nlu-box">
+          <div class="nlu-label">📦 Extracted Entities</div>
+          <div id="entity-display"
+               style="font-family:var(--mono);font-size:10px;color:var(--muted);">
+            No entities extracted yet.
+          </div>
+        </div>
+
+        <div class="nlu-box">
+          <div class="nlu-label">🎤 STT — Speech to Text</div>
+          <div class="nlu-val" id="stt-status">INACTIVE</div>
+          <div class="nlu-sub" id="stt-transcript">—</div>
+        </div>
+
+        <div class="nlu-box">
+          <div class="nlu-label">🔊 TTS — Text to Speech</div>
+          <div class="nlu-val" id="tts-status">READY</div>
+          <div class="nlu-sub" id="tts-preview">—</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════ RIGHT — ACTIVITY LOG ════ -->
+  <div class="panel right-col">
+    <div class="panel-head">
+      <span class="ph-icon">📋</span>
+      <span class="ph-title">Call Activity Log</span>
+    </div>
+    <div class="log-bar">
+      <span class="log-cnt" id="log-cnt">0 events</span>
+      <button class="btn-clr" onclick="clearLog()">Clear</button>
+    </div>
+    <div class="log-list" id="log-list">
+      <div class="log-item li-end">
+        <div class="li-time">—</div>
+        <div class="li-label">READY</div>
+        <div class="li-msg">M3 Conversational AI layer connected. Waiting for call.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="/static/script.js"></script>
+<script>
+  // Show logged-in username
+  const user    = sessionStorage.getItem('ivr_user');
+  const hdrUser = document.getElementById('hdr-user');
+  if (hdrUser) hdrUser.textContent = user ? `👤 ${user}` : '';
+  if (!user) window.location.href = '/';
+
+  function logout() {
+    sessionStorage.removeItem('ivr_user');
+    window.location.href = '/';
+  }
+</script>
+
+</body>
+</html>
