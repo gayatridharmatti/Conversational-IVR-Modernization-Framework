@@ -1,0 +1,13 @@
+# =============================================================================
+# FILE        : requirements.txt
+# PROJECT     : IRCTC Smart IVR — Conversational IVR Modernization Framework
+# INSTALL     : pip install -r requirements.txt
+# =============================================================================
+
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+jinja2==3.1.3
+python-multipart==0.0.9
+aiofiles==23.2.1
+pydantic==2.6.4
+httpx==0.23.3
